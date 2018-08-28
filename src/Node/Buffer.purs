@@ -24,7 +24,11 @@ module Node.Buffer
 
 import Prelude
 import Control.Monad.Eff (Eff, kind Effect)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Data.Maybe (Maybe(..))
+import Data.Generic (class Generic, toSpine, fromSpine, GenericSignature (SigProd), GenericSpine (SProd))
+import Data.Array as Array
+import Type.Proxy (Proxy (..))
 import Node.Encoding (Encoding, encodingToNode)
 
 -- | Type synonym indicating the value should be an octet (0-255). If the value
@@ -36,6 +40,19 @@ type Offset = Int
 
 -- | An instance of Node's Buffer class.
 foreign import data Buffer :: Type
+
+instance genericBuffer :: Generic Buffer where
+  toSpine x = SProd "Node.Buffer.Buffer" [\_ -> toSpine $ unsafePerformEff $ toArray x]
+  toSignature Proxy = SigProd "Node.Buffer.Buffer" [{sigConstructor: "Node.Buffer.Buffer", sigValues: []}]
+  fromSpine s = case s of
+    SProd d xs
+      | d == "Node.Buffer.Buffer" -> case Array.head xs of
+        Just y -> case fromSpine (y unit) of
+          Just xs' -> Just $ unsafePerformEff $ fromArray xs'
+          _ -> Nothing
+        _ -> Nothing
+      | otherwise -> Nothing
+    _ -> Nothing
 
 instance showBuffer :: Show Buffer where
   show = showImpl
